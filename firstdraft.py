@@ -1,6 +1,7 @@
 from spotipy.oauth2 import SpotifyClientCredentials
 from spotipy import Spotify
 from dataclasses import dataclass
+import lyricsgenius
 
 tyler_uri = "spotify:artist:4V8LLVI7PbaPR0K2TGSxFF"
 spotify = Spotify(client_credentials_manager=SpotifyClientCredentials())
@@ -60,12 +61,16 @@ class Track:
     uri: str
     id: str
     features: AudioFeatures
+    lyrics: str = None
 
 
 def get_tracks_rec_from_artist(
     artist_uri: str, spotify: Spotify, limit: int = 5
 ) -> list[Track]:
-    recs = spotify.recommendations(seed_artists=[artist_uri], limit=limit)
+    recs = spotify.recommendations(
+        seed_artists=[artist_uri],
+        limit=limit,
+    )
     raw_tracks = recs["tracks"]
     tracks = []
     for track_dict in raw_tracks:
@@ -96,9 +101,33 @@ def create_track_from_dict(track_dict: dict) -> Track:
     return track_obj
 
 
-tracks = get_tracks_rec_from_artist(tyler_uri, spotify, limit=5)
+def set_lyrics_for_track(track: Track, genius: lyricsgenius.Genius) -> None:
+    song = genius.search_song(title=track.name, artist=track.artists[0].name)
+    track.lyrics = song.lyrics
+
+
+def get_uri_from_name(name: str, spotify: Spotify) -> str:
+    results = spotify.search(q="artist:" + name, type="artist")
+    items = results["artists"]["items"]
+    if len(items) > 0:
+        artist = items[0]
+        return artist["uri"]
+    else:
+        return None
+
+
+luther_uri = get_uri_from_name("alpha wann", spotify)
+
+
+tracks = get_tracks_rec_from_artist(luther_uri, spotify, limit=5)
 ids = [track.id for track in tracks]
-print(tracks[0])
+genius = lyricsgenius.Genius()
+set_lyrics_for_track(tracks[0], genius)
+print(tracks[0].lyrics)
+
+# artist = genius.search_artist("Nekfeu", max_songs=3, sort="title")
+# song = genius.search_song(title="Risibles amours", artist="Nekfeu")
+# print(song.lyrics)
 
 
 def get_artists_related_artists(artist_uri, spotify):
