@@ -2,6 +2,7 @@ from spotipy.oauth2 import SpotifyClientCredentials
 from spotipy import Spotify
 from dataclasses import dataclass
 import lyricsgenius
+from sentiment_analysis import text_similarity
 
 tyler_uri = "spotify:artist:4V8LLVI7PbaPR0K2TGSxFF"
 spotify = Spotify(client_credentials_manager=SpotifyClientCredentials())
@@ -64,11 +65,15 @@ class Track:
     lyrics: str = None
 
 
-def get_tracks_rec_from_artist(
-    artist_uri: str, spotify: Spotify, limit: int = 5
+def get_tracks_rec(
+    spotify: Spotify,
+    artist_uri: str,
+    track_uri: str = None,
+    limit: int = 5,
 ) -> list[Track]:
     recs = spotify.recommendations(
         seed_artists=[artist_uri],
+        seed_tracks=[track_uri] if track_uri else None,
         limit=limit,
     )
     raw_tracks = recs["tracks"]
@@ -106,28 +111,65 @@ def set_lyrics_for_track(track: Track, genius: lyricsgenius.Genius) -> None:
     track.lyrics = song.lyrics
 
 
-def get_uri_from_name(name: str, spotify: Spotify) -> str:
+def get_artist_from_name(name: str, spotify: Spotify) -> Artist:
     results = spotify.search(q="artist:" + name, type="artist")
     items = results["artists"]["items"]
     if len(items) > 0:
         artist = items[0]
-        return artist["uri"]
+        return Artist(**create_dict_for_object(Artist, artist))
     else:
         return None
 
 
-luther_uri = get_uri_from_name("alpha wann", spotify)
+def get_track_from_names(spotify: Spotify, track_name: str, artist_name: str) -> Track:
+    results = spotify.search(
+        q="track:" + track_name + " artist:" + artist_name, type="track"
+    )
+    items = results["tracks"]["items"]
+    if len(items) > 0:
+        track = items[0]
+        return create_track_from_dict(track)
+    else:
+        return None
 
 
-tracks = get_tracks_rec_from_artist(luther_uri, spotify, limit=5)
+artist = get_artist_from_name("alpha wann", spotify)
+luther_uri = artist.uri
+print(luther_uri)
+tracks = get_tracks_rec(spotify, artist_uri=luther_uri, limit=5)
 ids = [track.id for track in tracks]
 genius = lyricsgenius.Genius()
-set_lyrics_for_track(tracks[0], genius)
-print(tracks[0].lyrics)
+# set_lyrics_for_track(tracks[0], genius)
+
+# set_lyrics_for_track(tracks[1], genius)
 
 # artist = genius.search_artist("Nekfeu", max_songs=3, sort="title")
 # song = genius.search_song(title="Risibles amours", artist="Nekfeu")
 # print(song.lyrics)
+
+firstartist = "tengo john"
+name = "seul"
+secondartist = "josman"
+
+seul_1 = get_track_from_names(spotify, "otis", "jay-z")
+seul_2 = get_track_from_names(spotify, "solo", "frank ocean")
+naps = get_track_from_names(spotify, "nikes", "frank ocean")
+set_lyrics_for_track(seul_1, genius)
+set_lyrics_for_track(seul_2, genius)
+set_lyrics_for_track(naps, genius)
+
+print(
+    f"{seul_1.name} by {seul_1.artists[0].name} vs {seul_2.name} by {seul_2.artists[0].name}"
+)
+print(text_similarity(seul_1.lyrics, seul_2.lyrics))
+print(
+    f"{seul_1.name} by {seul_1.artists[0].name} vs {naps.name} by {naps.artists[0].name}"
+)
+print(text_similarity(seul_1.lyrics, naps.lyrics))
+print(
+    f"{naps.name} by {naps.artists[0].name} vs {seul_2.name} by {seul_2.artists[0].name}"
+)
+print(text_similarity(seul_2.lyrics, naps.lyrics))
 
 
 def get_artists_related_artists(artist_uri, spotify):
