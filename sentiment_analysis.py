@@ -60,10 +60,6 @@ def text_similarity(text1, text2):
     )
 
     # combine cosine similarity score with theme, vocabulary, and lexical field scores
-    print(f"{cosine_score=}")
-    print(f"{theme_score=}")
-    print(f"{vocabulary_score=}")
-    print(f"{lexical_field_score=}")
     combined_score = (
         cosine_score
         * theme_score
@@ -74,8 +70,3 @@ def text_similarity(text1, text2):
     )
 
     return combined_score
-
-
-text1 = "j'aime les femmes qui aiment les femmes"
-text2 = "je mange du fromage de chèvre"
-print(text_similarity(text1, text2))
