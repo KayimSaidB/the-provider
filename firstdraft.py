@@ -3,9 +3,9 @@ from spotipy import Spotify
 from dataclasses import dataclass
 import lyricsgenius
 from sentiment_analysis import text_similarity
-from similarity import compute_similarity_score
 import numpy as np
 import logging
+from sklearn.preprocessing import StandardScaler
 
 LOGGER = logging.getLogger(__name__)
 tyler_uri = "spotify:artist:4V8LLVI7PbaPR0K2TGSxFF"
@@ -83,6 +83,13 @@ class Track:
     id: str
     features: AudioFeatures
     lyrics: str = None
+    features_normalized: np.ndarray = None
+
+
+@dataclass
+class Score:
+    text_similarity: float
+    audio_similarity: float
 
 
 def get_tracks_rec(
@@ -175,32 +182,43 @@ def get_artists_related_artists(artist_uri, spotify):
 
 
 artist = get_artist_from_name("alpha wann", spotify)
-track_tiako = get_track_from_names(spotify, "coucher de soleil", "tiakola")
-set_lyrics_for_track(track_tiako, genius)
-gun_salute = get_track_from_names(spotify, "gun salute", "kaaris")
-set_lyrics_for_track(gun_salute, genius)
-bosseur = get_track_from_names(spotify, "bosseur", "rsko")
-set_lyrics_for_track(bosseur, genius)
-
+track_tiako = get_track_from_names(spotify, "cascade", "alpha wann")
+track_pas_tiako = get_track_from_names(spotify, "etincelles", "sneazzy")
 
 print(track_tiako.features)
-print(gun_salute.features)
-print(bosseur.features)
-"""tracks = get_tracks_rec(spotify, track_uri=track_tiako.uri, limit=20)
+print(track_pas_tiako.features)
 
-for track in tracks:
-    set_lyrics_for_track(track, genius)
-# compute distance between two arrays
-distance_dict = {}
-for track in tracks:
-    if track.lyrics is None:
-        continue
-    distance_dict[track.name] = (
-        text_similarity(track_tiako.lyrics, track.lyrics),
-        np.linalg.norm(track.features.to_vec() - track_tiako.features.to_vec()),
-    )
+set_lyrics_for_track(track_tiako, genius)
 
-# print the 10 closest tracks
-for key, value in sorted(distance_dict.items(), key=lambda item: item[1][1])[:10]:
-    print(key, value[0], value[1])
-"""
+
+def get_closest_tracks(track: Track, spotify: Spotify, genius: lyricsgenius.Genius):
+    tracks = get_tracks_rec(spotify, track_uri=track.uri, limit=50)
+    list_of_features = [track.features.to_vec() for track in tracks]
+    # normalize list of features
+    list_of_features.append(track.features.to_vec())
+    tracks.append(track)
+    list_of_features_normalized = StandardScaler().fit_transform(list_of_features)
+    for i, track in enumerate(tracks):
+        track.features_normalized = list_of_features_normalized[i]
+    track.features_normalized = list_of_features_normalized[-1]
+    for t in tracks:
+        set_lyrics_for_track(t, genius)
+    # compute distance between two arrays
+    distance_dict = {}
+    distance_dict_normalized = {}
+    for t in tracks:
+        if track.lyrics is None:
+            continue
+        distance_dict_normalized[track.name] = Score(
+            text_similarity(track_tiako.lyrics, track.lyrics),
+            np.linalg.norm(track.features_normalized - track_tiako.features_normalized),
+        )
+
+    # print the 10 closest tracks
+    for key, value in sorted(
+        distance_dict_normalized.items(), key=lambda item: item.audio_similarity
+    )[:10]:
+        print(key, value.text_similarity, value.audio_similarity)
+
+
+get_closest_tracks(track_tiako, spotify, genius)
